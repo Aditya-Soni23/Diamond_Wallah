@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Diamond Wallah — Admin</title>
+<style>
+  :root{--bg:#071024;--card:#0b1a2b;--muted:#93c5fd}
+  body{margin:0;font-family:Inter,Poppins,system-ui,sans-serif;background:var(--bg);color:#e6eef8;padding:22px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  h1{margin:0;font-size:20px}
+  .container{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 22px rgba(0,0,0,0.5)}
+  .list{max-height:360px;overflow:auto;margin-top:8px}
+  .entry{display:flex;justify-content:space-between;align-items:center;padding:8px;margin:8px 0;background:rgba(255,255,255,0.02);border-radius:8px}
+  .btn{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:600}
+  .deny{background:#ef4444;color:white}
+  .allow{background:#fbbf24;color:#042c48}
+  .remove{background:#f87171;color:#042c48}
+  .logout{background:#ef4444;color:white}
+  .note{font-size:13px;color:var(--muted);margin-top:8px}
+  .small{font-size:13px;color:#9fb2d9;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Diamond Wallah — Admin Panel</h1>
+  <div>
+    <button id="signInBtn" class="btn">Sign in (Google)</button>
+    <button id="signOutBtn" class="btn logout" style="display:none">Sign out</button>
+  </div>
+</header>
+
+<div id="adminUI" style="display:none">
+  <div class="container">
+    <div class="card">
+      <h3>Tried Logins</h3>
+      <div id="loginList" class="list">Loading…</div>
+      <div class="note">Click <strong>Deny</strong> to delete the login attempt, or <strong>Allow</strong> to add to allowedEmails (and remove the login entry).</div>
+    </div>
+
+    <div class="card">
+      <h3>Allowed Emails</h3>
+      <div id="allowedList" class="list">Loading…</div>
+      <div class="note">Click <strong>Remove</strong> to revoke access.</div>
+    </div>
+  </div>
+  <div class="small">Admin account: <strong>adityasonihyderabad@gmail.com</strong></div>
+</div>
+
+<div id="accessDenied" style="display:none;margin-top:18px">
+  <div class="card"><h3 style="color:#ffccd5">Unauthorized</h3>
+  <p>You are not the admin. Only <strong>adityasonihyderabad@gmail.com</strong> can access this page.</p>
+  <p><a href="index.html" style="color:#93c5fd">Back to login</a></p></div>
+</div>
+
+<script type="module">
+/* ----------------- FIREBASE ----------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import {
+  getDatabase,
+  ref,
+  onValue,
+  set,
+  remove
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD4atTwsCNXLzM8lMaMF52VjNqHyccqifU",
+  authDomain: "diamondwallah-2aa86.firebaseapp.com",
+  databaseURL: "https://diamondwallah-2aa86-default-rtdb.firebaseio.com",
+  projectId: "diamondwallah-2aa86",
+  storageBucket: "diamondwallah-2aa86.firebasestorage.app",
+  messagingSenderId: "981306798254",
+  appId: "1:981306798254:web:8bd1227052a8d143a3bd3f",
+  measurementId: "G-PFS02YTW8G"
+};
+
+const ADMIN_EMAIL = "adityasonihyderabad@gmail.com";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const db = getDatabase(app);
+
+/* ----------------- UI ELEMENTS ----------------- */
+const signInBtn = document.getElementById("signInBtn");
+const signOutBtn = document.getElementById("signOutBtn");
+const adminUI = document.getElementById("adminUI");
+const accessDenied = document.getElementById("accessDenied");
+const loginList = document.getElementById("loginList");
+const allowedList = document.getElementById("allowedList");
+
+/* ----------------- AUTH FLOW ----------------- */
+signInBtn.addEventListener("click", () => signInWithPopup(auth, provider));
+signOutBtn.addEventListener("click", () => {
+  signOut(auth).then(()=> location.href = "index.html");
+});
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    signInBtn.style.display = "inline-block";
+    signOutBtn.style.display = "none";
+    adminUI.style.display = "none";
+    accessDenied.style.display = "none";
+    return;
+  }
+
+  // only allow ADMIN_EMAIL
+  if (user.email !== ADMIN_EMAIL) {
+    signInBtn.style.display = "none";
+    signOutBtn.style.display = "inline-block";
+    adminUI.style.display = "none";
+    accessDenied.style.display = "block";
+    return;
+  }
+
+  // show admin UI
+  signInBtn.style.display = "none";
+  signOutBtn.style.display = "inline-block";
+  accessDenied.style.display = "none";
+  adminUI.style.display = "block";
+
+  startListening();
+});
+
+/* ----------------- UTIL ----------------- */
+function emailKey(email){ return email.replace(/\./g,"_"); }
+
+/* ----------------- DATA LISTENERS ----------------- */
+let loginRef, allowedRef;
+
+function startListening(){
+  loginRef = ref(db, "logins");
+  allowedRef = ref(db, "allowedEmails");
+
+  onValue(loginRef, snap => {
+    loginList.innerHTML = "";
+    if (!snap.exists()) { loginList.innerHTML = "<div style='opacity:0.75'>No logins yet</div>"; return; }
+
+    snap.forEach(child => {
+      const uid = child.key;
+      const data = child.val();
+      const email = data.email || "(no email)";
+
+      // entry container
+      const div = document.createElement("div");
+      div.className = "entry";
+
+      const left = document.createElement("div");
+      left.style.maxWidth = "65%";
+      left.textContent = email;
+
+      const controls = document.createElement("div");
+      controls.style.display = "flex";
+      controls.style.gap = "8px";
+
+      // Deny button (delete the login attempt)
+      const denyBtn = document.createElement("button");
+      denyBtn.className = "btn deny";
+      denyBtn.textContent = "Deny";
+      denyBtn.onclick = async () => {
+        try {
+          await remove(ref(db, "logins/" + uid));
+          // visual feedback
+        } catch (e) { alert("Failed to deny: "+e.message); }
+      };
+
+      // Allow button (add to allowedEmails and remove login)
+      const allowBtn = document.createElement("button");
+      allowBtn.className = "btn allow";
+      allowBtn.textContent = "Allow";
+      allowBtn.onclick = async () => {
+        try {
+          const key = emailKey(email);
+          await set(ref(db, "allowedEmails/" + key), {
+            email: email,
+            addedBy: ADMIN_EMAIL,
+            addedAt: new Date().toISOString()
+          });
+          // remove the login entry after allowing
+          await remove(ref(db, "logins/" + uid));
+          alert("Allowed: " + email);
+        } catch (e) { alert("Failed to allow: "+e.message); }
+      };
+
+      controls.appendChild(denyBtn);
+      controls.appendChild(allowBtn);
+
+      div.appendChild(left);
+      div.appendChild(controls);
+      loginList.appendChild(div);
+    });
+  });
+
+  onValue(allowedRef, snap => {
+    allowedList.innerHTML = "";
+    if (!snap.exists()) { allowedList.innerHTML = "<div style='opacity:0.75'>No allowed emails yet</div>"; return; }
+
+    snap.forEach(child => {
+      const key = child.key;
+      const data = child.val();
+      const email = data.email || key.replace(/_/g,".");
+
+      const div = document.createElement("div");
+      div.className = "entry";
+
+      const left = document.createElement("div");
+      left.style.maxWidth = "70%";
+      left.textContent = email;
+
+      const controls = document.createElement("div");
+      controls.style.display = "flex";
+      controls.style.gap = "8px";
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "btn remove";
+      removeBtn.textContent = "Remove";
+      removeBtn.onclick = async () => {
+        try {
+          await remove(ref(db, "allowedEmails/" + key));
+          alert("Removed: " + email);
+        } catch (e) { alert("Failed to remove: "+e.message); }
+      };
+
+      controls.appendChild(removeBtn);
+
+      div.appendChild(left);
+      div.appendChild(controls);
+      allowedList.appendChild(div);
+    });
+  });
+}
+</script>
+</body>
+</html>

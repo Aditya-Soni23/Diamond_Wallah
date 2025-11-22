@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Diamond Wallah — Login</title>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background: radial-gradient(circle at top, #1e1b4b, #0f0f1f 60%, #000 100%);
+    color:#eef2ff;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  /* floating glowing particles */
+  .glow-ball{
+    position:absolute;
+    width:180px;
+    height:180px;
+    border-radius:50%;
+    background:radial-gradient(circle,#7f5af0aa,#0000);
+    filter:blur(60px);
+    animation:float 8s infinite ease-in-out alternate;
+  }
+  .glow2{
+    width:250px;
+    height:250px;
+    left:60%;
+    top:30%;
+    background:radial-gradient(circle,#00d4ff99,#0000);
+    animation-duration:10s;
+  }
+  @keyframes float{
+    from{transform:translateY(-30px);}
+    to{transform:translateY(30px);}
+  }
+
+  .card{
+    width:380px;
+    background:rgba(255,255,255,0.06);
+    padding:32px;
+    border-radius:18px;
+    backdrop-filter:blur(12px);
+    text-align:center;
+    box-shadow:0 0 40px rgba(0,0,0,0.55);
+    animation:fadeIn 0.9s ease-out;
+    border:1px solid rgba(255,255,255,0.09);
+  }
+
+  @keyframes fadeIn{
+    from{opacity:0;transform:scale(0.95);}
+    to{opacity:1;transform:scale(1);}
+  }
+
+  .logo{
+    width:85px;
+    margin-bottom:14px;
+    filter:drop-shadow(0 0 8px #00eaff);
+  }
+
+  h1{
+    margin:0;
+    font-size:26px;
+    letter-spacing:0.6px;
+    background:linear-gradient(45deg,#00eaff,#ff4df0);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-weight:600;
+  }
+
+  p{
+    margin:8px 0 22px;
+    opacity:0.85;
+    font-weight:300;
+  }
+
+  .btn{
+    width:100%;
+    padding:13px;
+    border-radius:10px;
+    border:none;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.2s;
+    font-size:15px;
+  }
+
+  .btn:hover{
+    transform:translateY(-2px);
+    opacity:0.95;
+  }
+
+  .google{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+    color:#111;
+  }
+
+  .admin{
+    margin-top:14px;
+    background:#ef4444;
+    color:#fff;
+  }
+
+  #loading{
+    margin-top:14px;
+    display:none;
+    color:#cbd5e1;
+    font-size:14px;
+  }
+
+</style>
+</head>
+
+<body>
+
+  <!-- glowing elements -->
+  <div class="glow-ball"></div>
+  <div class="glow-ball glow2"></div>
+
+  <div class="card">
+    <img src="Diamond_Company_Logo.png" class="logo" alt="Diamond Wallah Logo">
+
+    <h1>Diamond Wallah</h1>
+    <p>The Ultimate JEE Resource Hub — 100% Premium & Ad-Free</p>
+
+    <button id="googleBtn" class="btn google">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png" 
+           alt="G" style="width:20px;height:20px"/>
+      Sign in with Google
+    </button>
+
+    <button id="adminBtn" class="btn admin" onclick="location.href='admin.html'">
+      Admin Portal
+    </button>
+
+    <div id="loading">Authenticating…</div>
+  </div>
+
+<script type="module">
+/* ----------------- FIREBASE IMPORTS ----------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* ----------------- FIREBASE CONFIG (your keys) ----------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyD4atTwsCNXLzM8lMaMF52VjNqHyccqifU",
+  authDomain: "diamondwallah-2aa86.firebaseapp.com",
+  databaseURL: "https://diamondwallah-2aa86-default-rtdb.firebaseio.com",
+  projectId: "diamondwallah-2aa86",
+  storageBucket: "diamondwallah-2aa86.firebasestorage.app",
+  messagingSenderId: "981306798254",
+  appId: "1:981306798254:web:8bd1227052a8d143a3bd3f",
+  measurementId: "G-PFS02YTW8G"
+};
+
+/* ----------------- INIT ----------------- */
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const db = getDatabase(app);
+
+/* ----------------- HELPERS ----------------- */
+function emailKey(email){
+  // Firebase keys cannot contain '.' so we replace them
+  return email.replace(/\./g, "_");
+}
+
+/* ----------------- UI ----------------- */
+const googleBtn = document.getElementById("googleBtn");
+const loading = document.getElementById("loading");
+
+googleBtn.addEventListener("click", async () => {
+  loading.style.display = "block";
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    // log the attempt
+    await set(ref(db, "logins/" + user.uid), {
+      email: user.email,
+      loginTime: new Date().toISOString()
+    });
+
+    // check allowedEmails/{email_key}
+    const allowedKey = emailKey(user.email);
+    // read operation: use REST-style URL to check quickly (no extra imports)
+    const dbUrl = firebaseConfig.databaseURL.replace(/\/$/, "");
+    const checkUrl = `${dbUrl}/allowedEmails/${allowedKey}.json`;
+    const r = await fetch(checkUrl);
+    const json = await r.json();
+
+    if (json) {
+      // allowed -> go to main
+      location.href = "main.html";
+    } else {
+      // not allowed -> purchase
+      location.href = "purchase.html";
+    }
+
+  } catch (err) {
+    alert("Login failed: " + (err.message || err));
+    loading.style.display = "none";
+  }
+});
+</script>
+</body>
+</html>

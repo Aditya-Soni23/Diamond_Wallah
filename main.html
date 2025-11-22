@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Diamond Wallah — Dashboard</title>
+<style>
+    body{
+        margin:0;
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #0f0f1f, #090b23);
+        color:#e2e8f0;
+        min-height:100vh;
+    }
+
+    /* NAVBAR */
+    nav{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding:18px 32px;
+        background:rgba(255,255,255,0.04);
+        backdrop-filter: blur(8px);
+        border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+    nav img{
+        height:38px;
+    }
+    nav .user{
+        font-size:15px;
+        opacity:0.9;
+    }
+    nav button{
+        padding:8px 16px;
+        background:#ef4444;
+        color:#fff;
+        border:none;
+        border-radius:8px;
+        cursor:pointer;
+        font-weight:600;
+    }
+
+    /* HERO */
+    .hero{
+        text-align:center;
+        margin:50px auto 30px;
+    }
+    .hero h1{
+        font-size:36px;
+        background:linear-gradient(90deg,#a855f7,#6366f1,#06b6d4);
+        -webkit-background-clip:text;
+        -webkit-text-fill-color:transparent;
+        font-weight:700;
+        letter-spacing:1px;
+    }
+    .hero p{
+        margin-top:10px;
+        font-size:17px;
+        opacity:0.8;
+    }
+
+    /* CARDS */
+    .container{
+        display:flex;
+        gap:30px;
+        justify-content:center;
+        margin-top:50px;
+        flex-wrap:wrap;
+    }
+    .card{
+        width:280px;
+        padding:24px;
+        background:rgba(255,255,255,0.05);
+        border:1px solid rgba(255,255,255,0.1);
+        border-radius:16px;
+        text-align:center;
+        backdrop-filter:blur(10px);
+        transition:0.3s;
+        cursor:pointer;
+    }
+    .card:hover{
+        transform:translateY(-8px);
+        box-shadow:0 0 25px rgba(129,140,248,0.4);
+        border-color:#6366f1;
+    }
+    .card img{
+        width:70px;
+        margin-bottom:16px;
+    }
+    .card h2{
+        font-size:22px;
+        margin-bottom:8px;
+    }
+    .card p{
+        opacity:0.8;
+        font-size:14px;
+        margin-bottom:20px;
+    }
+    .card button{
+        padding:10px 20px;
+        border:none;
+        background:#6366f1;
+        color:white;
+        border-radius:8px;
+        font-weight:600;
+        cursor:pointer;
+    }
+
+    footer{
+        text-align:center;
+        margin-top:60px;
+        opacity:0.7;
+        font-size:14px;
+        padding-bottom:20px;
+    }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <img src="Diamond_Company_Logo.png" alt="Diamond Wallah Logo"/>
+    <button onclick="logout()">Logout</button>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+    <h1>Unlock Your JEE Power</h1>
+    <p>Access premium curated materials for Physics, Chemistry & Mathematics.</p>
+</div>
+
+<!-- CARDS -->
+<div class="container">
+    
+    <div class="card" onclick="location.href='physics.html'">
+        <img src="https://cdn-icons-png.flaticon.com/512/1467/1467187.png"/>
+        <h2>Physics Material</h2>
+        <p>PYQs, notes, formula sheets and advanced problem sets.</p>
+        <button>Open</button>
+    </div>
+
+    <div class="card" onclick="location.href='math.html'">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Deus_mathematics.png"/>
+        <h2>Mathematics Material</h2>
+        <p>PYQs, notes, formula sheets and advanced problem sets.</p>
+        <button>Open</button>
+    </div>
+
+    <div class="card" onclick="location.href='chem.html'">
+        <img src="https://png.pngtree.com/png-vector/20190116/ourmid/pngtree-chemistry-teaching-cylinder-chemistry-chemical-equipment-chemistry-class-png-image_388496.png"/>
+        <h2>Chemistry Material</h2>
+        <p>PYQs, notes, formula sheets and advanced problem sets.</p>
+        <button>Open</button>
+    </div>
+
+</div>
+
+<footer>
+    © 2025 Diamond Wallah • Contact: diamondwallah@gmail.com
+</footer>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "YOUR-API-KEY",
+  authDomain: "YOUR-DOMAIN",
+  databaseURL: "YOUR-DB-URL",
+  projectId: "diamondwallah-2aa86",
+  storageBucket: "diamondwallah-2aa86.firebasestorage.app",
+  messagingSenderId: "981306798254",
+  appId: "1:981306798254:web:8bd1227052a8d143a3bd3f"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getDatabase(app);
+
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        location.href = "index.html";
+        return;
+    }
+
+    document.getElementById("userEmail").textContent = user.email;
+
+    // Check access
+    const allowedRef = ref(db, "allowed/" + user.uid);
+    const snap = await get(allowedRef);
+
+    if (!snap.exists()) {
+        signOut(auth);
+        location.href = "purchase.html";
+    }
+});
+
+window.logout = function(){
+    signOut(auth);
+};
+</script>
+
+</body>
+</html>
